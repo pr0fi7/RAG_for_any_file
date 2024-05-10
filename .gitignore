@@ -8,6 +8,8 @@ __pycache__/
 
 .env
 .DS_Store
+env/
+.streamlit/
 
 # Distribution / packaging
 .Python
