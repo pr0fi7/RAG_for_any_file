@@ -9,11 +9,11 @@ Once uploaded, you can engage in a chat-like interface to ask questions about th
 To install the app scripts, follow these steps:
 
 1. Clone the repository to your local machine using the command:
-git clone https://github.com/pr0fi7/RAG_for_any_file.git
+```git clone https://github.com/pr0fi7/RAG_for_any_file.git```
 2. Ensure that you have the required dependencies installed by executing:
-pip install -r requirements.txt
+```pip install -r requirements.txt```
 3. Create a `.env` file with your OpenAI API key in the same directory:
-OPENAI_API_KEY = 'sk-hghghghhhfhfhffhhf'
+```OPENAI_API_KEY = 'sk-hghghghhhfhfhffhhf'```
 
 
 ## What is RAG?
