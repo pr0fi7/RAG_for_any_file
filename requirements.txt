@@ -3,6 +3,7 @@ python-dotenv
 PyPDF2
 langchain
 langchain_text_splitters
+langchain-community
 python-docx
 python-pptx
 glob2
