@@ -1,4 +1,5 @@
 aiohttp==3.9.5
+faiss-cpu
 tiktoken
 openai
 aiosignal==1.3.1
