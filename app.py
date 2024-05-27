@@ -1,6 +1,5 @@
 import streamlit as st
 from dotenv import load_dotenv
-import os
 from PyPDF2 import PdfReader
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS #local one so everything will be deleted after the session
@@ -82,8 +81,7 @@ def handle_userinput(user_question):
 
 def main():
     load_dotenv()
-    token = os.getenv("HUGGINGFACE_API_TOKEN")
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = st.secrets["OPENAI_API_KEY"]
     st.set_page_config(page_title="RAG", page_icon=":shark:")
     st.write(css, unsafe_allow_html=True)
 
