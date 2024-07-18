@@ -1,14 +1,10 @@
 import sys
 import os
-
-# Add the root directory to the Python path
-sys.path.append(os.path.abspath('/rag_nxt_lvl/RagOnTheFly/'))
-
 import streamlit as st
 from PyPDF2 import PdfReader
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS #local one so everything will be deleted after the session
-from langchain_text_splitters import CharacterTextSplitter
+from langchain.vectorstores import FAISS
+from langchain.text_splitter import CharacterTextSplitter
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
@@ -80,7 +76,7 @@ def get_vector_store(text_chunks):
     return vector_store
 
 def get_conversation_chain(vectorstore, prompt):
-    llm = ChatOpenAI(temperature=0, model_name="gpt-4o")
+    llm = ChatOpenAI(temperature=0, model_name="gpt-4")
     memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True,  output_key='answer')
 
     conversation_chain = ConversationalRetrievalChain.from_llm(
@@ -173,10 +169,32 @@ def main():
         chunk_size = st.slider("Chunk size", value=1200, min_value=200, max_value=2000, step=100)
         overlap = st.slider("Overlap", value=200, min_value=0, max_value=400, step=50)
 
-        prompt_template = st.text_area("System Prompt Template")
+        # Initialize prompt_template with a default value
+        prompt_template = prompt
 
+        if st.button('Define behaviour'):
+            choices = {
+                'summary': 'Summarize the document',
+                'bullet_points': 'Generate bullet points',
+                'say_blue_duck': 'Always, no matter what, all the times, no matter what is the question say: "blue duck"',
+                'else': None
+            }
+            choice = st.radio("Select a behaviour", list(choices.keys()))
 
-        if st.button("RAG it now !"):
+            if choice == 'summary':
+                prompt_template = choices[choice]
+
+            elif choice == 'bullet_points':
+                prompt_template = choices[choice]
+
+            elif choice == 'say_blue_duck':
+                prompt_template = choices[choice]
+
+            elif choice == "else":
+                prompt_template = st.text_area("System Prompt Template")
+
+        def rag_it(prompt_template):
+            raw_text = ""
             with st.spinner("Analyzing, Vectorizing, Retrieving..."):
                 if docs:
                     pdf_files = []
@@ -231,7 +249,6 @@ def main():
                 if raw_text is None:
                     st.error("No text extracted from the documents.")
                     st.stop()
-                
 
                 text_chunks = get_text_chunks(raw_text, chunk_size, overlap)
                 vectorstore = get_vector_store(text_chunks)
@@ -243,14 +260,17 @@ def main():
                 print(prompt_template)
 
                 messages = [
-                SystemMessagePromptTemplate.from_template(prompt_template),
+                    SystemMessagePromptTemplate.from_template(prompt_template),
                 ]
-
-                qa_prompt = ChatPromptTemplate.from_messages( messages )
+                qa_prompt = ChatPromptTemplate.from_messages(messages)
 
                 # putting conversation in session state to keep it alive for the session but it doesn't work
                 st.session_state.conversation = get_conversation_chain(vectorstore, qa_prompt)
                 st.write("Text extraction completed! \n Ask a question in the chatbox to get started.")
+
+        if st.button("RAG it now !"):
+
+                rag_it(prompt_template)
 
         if st.button('Clear Context'):
             # Reset the FAISS database / vector store
