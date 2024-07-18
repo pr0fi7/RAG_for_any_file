@@ -246,6 +246,7 @@ def main():
         overlap = st.slider("Overlap", value=200, min_value=0, max_value=400, step=50)
 
         choices = {
+                    'default': None,
                     'summary': 'Summarize the document',
                     'bullet_points': 'Generate bullet points',
                     'say_blue_duck': 'Always, no matter what, all the times, no matter what is the question say: "blue duck"',
