@@ -126,6 +126,82 @@ def get_source_documents(user_question):
     print(pretty_sources)
     st.write(pretty_sources)
 
+def rag_it(prompt_template, docs, url, chunk_size, overlap, prompt):
+        raw_text = ""
+        with st.spinner("Analyzing, Vectorizing, Retrieving..."):
+            if docs:
+                pdf_files = []
+                pptx_files = []
+                docx_files = []
+                xlsx_files = []
+
+                for doc in docs:
+                    if doc.name.endswith('.zip'):
+                        unzip_file(doc, 'temp')
+
+                        extracted_files = []
+                        for root, dirs, files in os.walk('temp'):
+                            for file in files:
+                                extracted_files.append(os.path.join(root, file))
+
+                        print(f"Extracted files: {extracted_files}")
+                        for file in extracted_files:
+                            print(f"Processing file: {file}")
+                            if file.endswith('.pdf'):
+                                pdf_files.append(file)
+                            elif file.endswith('.docx'):
+                                docx_files.append(file)
+                            elif file.endswith('.pptx'):
+                                pptx_files.append(file)
+                    elif doc.name.endswith('.pdf'):
+                        pdf_files.append(doc)
+                    elif doc.name.endswith('.docx'):
+                        docx_files.append(doc)
+                    elif doc.name.endswith('.pptx'):
+                        pptx_files.append(doc)
+                    elif doc.name.endswith('.xlsx'):
+                        xlsx_files.append(doc)
+
+                if pdf_files:
+                    raw_text += get_pdf_text(pdf_files)
+                if docx_files:
+                    for docx_file in docx_files:
+                        raw_text += getText(docx_file)
+                if pptx_files:
+                    raw_text += get_pptx_text(pptx_files)
+                if xlsx_files:
+                    raw_text += get_xls_text(xlsx_files)
+
+            elif url:
+                raw_text += get_text_from_url(url)
+
+            else:
+                st.error("Please upload a PDF, DOCX, PPTX, XLSX file or a ZIP file containing such file(s) or provide a URL for analysis.")
+                st.stop()
+
+            if raw_text is None:
+                st.error("No text extracted from the documents.")
+                st.stop()
+
+            text_chunks = get_text_chunks(raw_text, chunk_size, overlap)
+            vectorstore = get_vector_store(text_chunks)
+
+            if not prompt_template:
+                prompt_template = prompt
+            else:
+                prompt_template = prompt_template + "context: {context} \nQuestion: {question} \nAnswer:"
+            print(prompt_template)
+
+            messages = [
+                SystemMessagePromptTemplate.from_template(prompt_template),
+            ]
+            qa_prompt = ChatPromptTemplate.from_messages(messages)
+
+            # putting conversation in session state to keep it alive for the session but it doesn't work
+            st.session_state.conversation = get_conversation_chain(vectorstore, qa_prompt)
+            st.write("Text extraction completed! \n Ask a question in the chatbox to get started.")
+
+
 def main():
     prompt = """
     You are an AI assistant for answering questions about the provided context. 
@@ -169,108 +245,33 @@ def main():
         chunk_size = st.slider("Chunk size", value=1200, min_value=200, max_value=2000, step=100)
         overlap = st.slider("Overlap", value=200, min_value=0, max_value=400, step=50)
 
-        # Initialize prompt_template with a default value
-        prompt_template = prompt
+        choices = {
+                    'summary': 'Summarize the document',
+                    'bullet_points': 'Generate bullet points',
+                    'say_blue_duck': 'Always, no matter what, all the times, no matter what is the question say: "blue duck"',
+                    'else': None
+                    }
+        
+        choice = st.radio("Select a behaviour", list(choices.keys()))
 
-        if st.button('Define behaviour'):
-            choices = {
-                'summary': 'Summarize the document',
-                'bullet_points': 'Generate bullet points',
-                'say_blue_duck': 'Always, no matter what, all the times, no matter what is the question say: "blue duck"',
-                'else': None
-            }
-            choice = st.radio("Select a behaviour", list(choices.keys()))
+        if choice == 'default':
+            prompt_template = prompt
 
-            if choice == 'summary':
-                prompt_template = choices[choice]
+        elif choice == 'summary':
+            prompt_template = choices[choice]
 
-            elif choice == 'bullet_points':
-                prompt_template = choices[choice]
+        elif choice == 'bullet_points':
+            prompt_template = choices[choice]
 
-            elif choice == 'say_blue_duck':
-                prompt_template = choices[choice]
+        elif choice == 'say_blue_duck':
+            prompt_template = choices[choice]
 
-            elif choice == "else":
-                prompt_template = st.text_area("System Prompt Template")
+        elif choice == "else":
+            prompt_template = st.text_area("System Prompt Template")
 
-        def rag_it(prompt_template):
-            raw_text = ""
-            with st.spinner("Analyzing, Vectorizing, Retrieving..."):
-                if docs:
-                    pdf_files = []
-                    pptx_files = []
-                    docx_files = []
-                    xlsx_files = []
-
-                    for doc in docs:
-                        if doc.name.endswith('.zip'):
-                            unzip_file(doc, 'temp')
-
-                            extracted_files = []
-                            for root, dirs, files in os.walk('temp'):
-                                for file in files:
-                                    extracted_files.append(os.path.join(root, file))
-
-                            print(f"Extracted files: {extracted_files}")
-                            for file in extracted_files:
-                                print(f"Processing file: {file}")
-                                if file.endswith('.pdf'):
-                                    pdf_files.append(file)
-                                elif file.endswith('.docx'):
-                                    docx_files.append(file)
-                                elif file.endswith('.pptx'):
-                                    pptx_files.append(file)
-                        elif doc.name.endswith('.pdf'):
-                            pdf_files.append(doc)
-                        elif doc.name.endswith('.docx'):
-                            docx_files.append(doc)
-                        elif doc.name.endswith('.pptx'):
-                            pptx_files.append(doc)
-                        elif doc.name.endswith('.xlsx'):
-                            xlsx_files.append(doc)
-
-                    if pdf_files:
-                        raw_text += get_pdf_text(pdf_files)
-                    if docx_files:
-                        for docx_file in docx_files:
-                            raw_text += getText(docx_file)
-                    if pptx_files:
-                        raw_text += get_pptx_text(pptx_files)
-                    if xlsx_files:
-                        raw_text += get_xls_text(xlsx_files)
-
-                elif url:
-                    raw_text += get_text_from_url(url)
-
-                else:
-                    st.error("Please upload a PDF, DOCX, PPTX, XLSX file or a ZIP file containing such file(s) or provide a URL for analysis.")
-                    st.stop()
-
-                if raw_text is None:
-                    st.error("No text extracted from the documents.")
-                    st.stop()
-
-                text_chunks = get_text_chunks(raw_text, chunk_size, overlap)
-                vectorstore = get_vector_store(text_chunks)
-
-                if not prompt_template:
-                    prompt_template = prompt
-                else:
-                    prompt_template = prompt_template + "context: {context} \nQuestion: {question} \nAnswer:"
-                print(prompt_template)
-
-                messages = [
-                    SystemMessagePromptTemplate.from_template(prompt_template),
-                ]
-                qa_prompt = ChatPromptTemplate.from_messages(messages)
-
-                # putting conversation in session state to keep it alive for the session but it doesn't work
-                st.session_state.conversation = get_conversation_chain(vectorstore, qa_prompt)
-                st.write("Text extraction completed! \n Ask a question in the chatbox to get started.")
 
         if st.button("RAG it now !"):
-
-                rag_it(prompt_template)
+            rag_it(prompt_template, docs, url, chunk_size, overlap, prompt_template)
 
         if st.button('Clear Context'):
             # Reset the FAISS database / vector store
@@ -287,6 +288,7 @@ def main():
         st.write("2. Click the 'Analyze' button to start the analysis.")
         st.write("3. Ask a question in the chatbox to get started.")
         st.write("4. The chatbot will provide answers based on the content of the uploaded document or URL.")
+            
 
 if __name__ == '__main__':
     main()
