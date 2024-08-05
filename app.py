@@ -1,4 +1,3 @@
-import sys
 import os
 import streamlit as st
 from PyPDF2 import PdfReader
@@ -17,6 +16,13 @@ from link_parser import LinkParser
 import json
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate
 import pandas as pd
+from openai import OpenAI
+import requests
+import base64
+import cv2 
+import numpy as np
+from PIL import Image
+
 
 link_parser = LinkParser()
 
@@ -32,6 +38,66 @@ def get_xls_text(xls_files):
 def unzip_file(zip_file, extract_to):
     with zipfile.ZipFile(zip_file, 'r') as zip_ref:
         zip_ref.extractall(extract_to)
+
+
+def load_image(image_file):
+    # Ensure the image file is opened correctly
+    image = Image.open(image_file)
+    image = image.convert('RGB')  # Ensure image is in RGB format
+    image_array = np.array(image)
+    return image_array
+
+def get_text_from_image(image_files):
+    text = ""
+    
+    def detect_text(images):
+        # OpenAI API Key
+        api_key = st.secrets["OPENAI_API_KEY"]
+
+        # Convert the images to base64
+        converted_images = []
+
+        for image in images:
+            _, buffer = cv2.imencode('.jpg', image)
+            base64_image = base64.b64encode(buffer).decode('utf-8')
+            converted_images.append(base64_image)
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+
+        # Create the payload with all images
+        image_payload = [
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}} 
+            for base64_image in converted_images
+        ]
+
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "What is on the image?"
+                        },
+                        *image_payload
+                    ]
+                }
+            ],
+            "max_tokens": 300
+        }
+
+        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+        return response.json()['choices'][0]['message']['content']
+    
+    images = [load_image(image_file) for image_file in image_files]
+    text = detect_text(images)
+    
+    return text
+
 
 def get_pdf_text(pdf_files):
     text = ""
@@ -134,6 +200,7 @@ def rag_it(prompt_template, docs, url, chunk_size, overlap, prompt):
                 pptx_files = []
                 docx_files = []
                 xlsx_files = []
+                image_files = []
 
                 for doc in docs:
                     if doc.name.endswith('.zip'):
@@ -161,6 +228,9 @@ def rag_it(prompt_template, docs, url, chunk_size, overlap, prompt):
                         pptx_files.append(doc)
                     elif doc.name.endswith('.xlsx'):
                         xlsx_files.append(doc)
+                    elif doc.name.endswith('.jpg'):
+                        image_files.append(doc)
+
 
                 if pdf_files:
                     raw_text += get_pdf_text(pdf_files)
@@ -171,6 +241,8 @@ def rag_it(prompt_template, docs, url, chunk_size, overlap, prompt):
                     raw_text += get_pptx_text(pptx_files)
                 if xlsx_files:
                     raw_text += get_xls_text(xlsx_files)
+                if image_files:
+                    raw_text += get_text_from_image(image_files)
 
             elif url:
                 raw_text += get_text_from_url(url)
