@@ -248,7 +248,7 @@ def rag_it(prompt_template, docs, url, chunk_size, overlap, prompt):
                 raw_text += get_text_from_url(url)
 
             else:
-                st.error("Please upload a PDF, DOCX, PPTX, XLSX file or a ZIP file containing such file(s) or provide a URL for analysis.")
+                st.error("Please upload a PDF, DOCX, PPTX, XLSX, JPG file or a ZIP file containing such file(s) or provide a URL for analysis.")
                 st.stop()
 
             if raw_text is None:
@@ -309,7 +309,7 @@ def main():
 
     with st.sidebar:
         st.subheader("Load your documents")
-        st.subheader('Current version, supports PDF, DOCX, PPTX, ZIP and URL')
+        st.subheader('Current version, supports PDF, DOCX, PPTX, XLSX, JPG, ZIP and URL')
 
         docs = st.file_uploader("Upload a document", accept_multiple_files=True)
         url = st.text_input("Enter a URL")
